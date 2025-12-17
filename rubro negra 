@@ -1,0 +1,452 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <ctype.h>
+
+typedef enum { RED, BLACK } Color;
+
+typedef struct Node {
+    int data;
+    Color color;
+    struct Node* left;
+    struct Node* right;
+    struct Node* parent;
+} Node;
+
+typedef struct {
+    Node* root;
+    Node* nil; 
+} RedBlackTree;
+
+Node* createNode(int data, Color color, Node* nil) {
+    Node* newNode = (Node*)malloc(sizeof(Node));
+    if (newNode == NULL) {
+        printf("Erro ao alocar memÃ³ria!\n");
+        exit(1);
+    }
+    newNode->data = data;
+    newNode->color = color;
+    newNode->left = nil;
+    newNode->right = nil;
+    newNode->parent = NULL;
+    return newNode;
+}
+
+RedBlackTree* createRedBlackTree() {
+    RedBlackTree* tree = (RedBlackTree*)malloc(sizeof(RedBlackTree));
+    if (tree == NULL) {
+        printf("Erro ao alocar memÃ³ria!\n");
+        exit(1);
+    }
+    
+    tree->nil = (Node*)malloc(sizeof(Node));
+    if (tree->nil == NULL) {
+        printf("Erro ao alocar memÃ³ria!\n");
+        exit(1);
+    }
+    
+    tree->nil->data = 0;
+    tree->nil->color = BLACK;
+    tree->nil->left = tree->nil;
+    tree->nil->right = tree->nil;
+    tree->nil->parent = tree->nil;
+    
+    tree->root = tree->nil;
+    
+    return tree;
+}
+
+void leftRotate(RedBlackTree* tree, Node* x) {
+    Node* y = x->right;
+    x->right = y->left;
+    
+    if (y->left != tree->nil) {
+        y->left->parent = x;
+    }
+    
+    y->parent = x->parent;
+    
+    if (x->parent == tree->nil) {
+        tree->root = y;
+    } else if (x == x->parent->left) {
+        x->parent->left = y;
+    } else {
+        x->parent->right = y;
+    }
+    
+    y->left = x;
+    x->parent = y;
+}
+
+void rightRotate(RedBlackTree* tree, Node* x) {
+    Node* y = x->left;
+    x->left = y->right;
+    
+    if (y->right != tree->nil) {
+        y->right->parent = x;
+    }
+    
+    y->parent = x->parent;
+    
+    if (x->parent == tree->nil) {
+        tree->root = y;
+    } else if (x == x->parent->right) {
+        x->parent->right = y;
+    } else {
+        x->parent->left = y;
+    }
+    
+    y->right = x;
+    x->parent = y;
+}
+
+void fixInsert(RedBlackTree* tree, Node* z) {
+    while (z->parent->color == RED) {
+        if (z->parent == z->parent->parent->left) {
+            Node* y = z->parent->parent->right; 
+            
+            if (y->color == RED) {
+                z->parent->color = BLACK;
+                y->color = BLACK;
+                z->parent->parent->color = RED;
+                z = z->parent->parent;
+            } else {
+                if (z == z->parent->right) {
+                    z = z->parent;
+                    leftRotate(tree, z);
+                }
+                z->parent->color = BLACK;
+                z->parent->parent->color = RED;
+                rightRotate(tree, z->parent->parent);
+            }
+        } 
+        else {
+            Node* y = z->parent->parent->left; 
+            
+            if (y->color == RED) {
+                z->parent->color = BLACK;
+                y->color = BLACK;
+                z->parent->parent->color = RED;
+                z = z->parent->parent;
+            } else {
+                if (z == z->parent->left) {
+                    z = z->parent;
+                    rightRotate(tree, z);
+                }
+                z->parent->color = BLACK;
+                z->parent->parent->color = RED;
+                leftRotate(tree, z->parent->parent);
+            }
+        }
+    }
+    tree->root->color = BLACK;
+}
+
+void insertNode(RedBlackTree* tree, int data) {
+    Node* z = createNode(data, RED, tree->nil);
+    
+    Node* y = tree->nil;
+    Node* x = tree->root;
+    
+    while (x != tree->nil) {
+        y = x;
+        if (z->data < x->data) {
+            x = x->left;
+        } else if (z->data > x->data) {
+            x = x->right;
+        } else {
+            printf("Valor %d jÃ¡ existe na Ã¡rvore!\n", data);
+            free(z);
+            return;
+        }
+    }
+    
+    z->parent = y;
+    
+    if (y == tree->nil) {
+        tree->root = z;
+    } else if (z->data < y->data) {
+        y->left = z;
+    } else {
+        y->right = z;
+    }
+    
+    fixInsert(tree, z);
+    
+    printf("Valor %d inserido com sucesso!\n", data);
+}
+
+Node* searchNode(RedBlackTree* tree, Node* node, int data) {
+    if (node == tree->nil || data == node->data) {
+        return node;
+    }
+    
+    if (data < node->data) {
+        return searchNode(tree, node->left, data);
+    } else {
+        return searchNode(tree, node->right, data);
+    }
+}
+
+void searchValue(RedBlackTree* tree, int data) {
+    Node* result = searchNode(tree, tree->root, data);
+    if (result != tree->nil) {
+        printf("Valor %d encontrado na Ã¡rvore (cor: %s).\n", 
+               data, result->color == RED ? "VERMELHO" : "PRETO");
+    } else {
+        printf("Valor %d nÃ£o encontrado na Ã¡rvore.\n", data);
+    }
+}
+
+Node* minimumNode(RedBlackTree* tree, Node* node) {
+    while (node->left != tree->nil) {
+        node = node->left;
+    }
+    return node;
+}
+
+void transplant(RedBlackTree* tree, Node* u, Node* v) {
+    if (u->parent == tree->nil) {
+        tree->root = v;
+    } else if (u == u->parent->left) {
+        u->parent->left = v;
+    } else {
+        u->parent->right = v;
+    }
+    v->parent = u->parent;
+}
+
+void fixDelete(RedBlackTree* tree, Node* x) {
+    while (x != tree->root && x->color == BLACK) {
+        if (x == x->parent->left) {
+            Node* w = x->parent->right;
+            
+           if (w->color == RED) {
+                w->color = BLACK;
+                x->parent->color = RED;
+                leftRotate(tree, x->parent);
+                w = x->parent->right;
+            }
+            
+            if (w->left->color == BLACK && w->right->color == BLACK) {
+                w->color = RED;
+                x = x->parent;
+            } else {
+                if (w->right->color == BLACK) {
+                    w->left->color = BLACK;
+                    w->color = RED;
+                    rightRotate(tree, w);
+                    w = x->parent->right;
+                }
+                
+                w->color = x->parent->color;
+                x->parent->color = BLACK;
+                w->right->color = BLACK;
+                leftRotate(tree, x->parent);
+                x = tree->root;
+            }
+        } else {
+            Node* w = x->parent->left;
+            
+            if (w->color == RED) {
+                w->color = BLACK;
+                x->parent->color = RED;
+                rightRotate(tree, x->parent);
+                w = x->parent->left;
+            }
+            
+            if (w->right->color == BLACK && w->left->color == BLACK) {
+                w->color = RED;
+                x = x->parent;
+            } else {
+                if (w->left->color == BLACK) {
+                    w->right->color = BLACK;
+                    w->color = RED;
+                    leftRotate(tree, w);
+                    w = x->parent->left;
+                }
+                
+                w->color = x->parent->color;
+                x->parent->color = BLACK;
+                w->left->color = BLACK;
+                rightRotate(tree, x->parent);
+                x = tree->root;
+            }
+        }
+    }
+    x->color = BLACK;
+}
+
+void deleteNode(RedBlackTree* tree, int data) {
+    Node* z = searchNode(tree, tree->root, data);
+    if (z == tree->nil) {
+        printf("Valor %d nÃ£o encontrado para remoÃ§Ã£o.\n", data);
+        return;
+    }
+    
+    Node* y = z;
+    Node* x;
+    Color yOriginalColor = y->color;
+    
+    if (z->left == tree->nil) {
+        x = z->right;
+        transplant(tree, z, z->right);
+    } else if (z->right == tree->nil) {
+        x = z->left;
+        transplant(tree, z, z->left);
+    } else {
+        y = minimumNode(tree, z->right);
+        yOriginalColor = y->color;
+        x = y->right;
+        
+        if (y->parent == z) {
+            x->parent = y;
+        } else {
+            transplant(tree, y, y->right);
+            y->right = z->right;
+            y->right->parent = y;
+        }
+        
+        transplant(tree, z, y);
+        y->left = z->left;
+        y->left->parent = y;
+        y->color = z->color;
+    }
+    
+    if (yOriginalColor == BLACK) {
+        fixDelete(tree, x);
+    }
+    
+    free(z);
+    printf("Valor %d removido com sucesso!\n", data);
+}
+
+void preOrderTraversal(RedBlackTree* tree, Node* node) {
+    if (node != tree->nil) {
+        printf("%d(%s) ", node->data, node->color == RED ? "R" : "B");
+        preOrderTraversal(tree, node->left);
+        preOrderTraversal(tree, node->right);
+    }
+}
+
+void inOrderTraversal(RedBlackTree* tree, Node* node) {
+    if (node != tree->nil) {
+        inOrderTraversal(tree, node->left);
+        printf("%d(%s) ", node->data, node->color == RED ? "R" : "B");
+        inOrderTraversal(tree, node->right);
+    }
+}
+
+void postOrderTraversal(RedBlackTree* tree, Node* node) {
+    if (node != tree->nil) {
+        postOrderTraversal(tree, node->left);
+        postOrderTraversal(tree, node->right);
+        printf("%d(%s) ", node->data, node->color == RED ? "R" : "B");
+    }
+}
+
+void displayTreeHelper(RedBlackTree* tree, Node* node, int space) {
+    if (node == tree->nil) return;
+    
+    space += 10;
+    
+    displayTreeHelper(tree, node->right, space);
+    
+    printf("\n");
+    for (int i = 10; i < space; i++) {
+        printf(" ");
+    }
+    printf("%d(%c)\n", node->data, node->color == RED ? 'R' : 'B');
+    
+    displayTreeHelper(tree, node->left, space);
+}
+
+void displayTree(RedBlackTree* tree) {
+    if (tree->root == tree->nil) {
+        printf("Ãrvore vazia!\n");
+        return;
+    }
+    
+    printf("\n========== ÃRVORE RUBRO-NEGRA ==========\n");
+    displayTreeHelper(tree, tree->root, 0);
+    printf("\n========================================\n");
+}
+
+void displayMenu() {
+    printf("\n========== MENU ÃRVORE RUBRO-NEGRA ==========\n");
+    printf("1. Inserir valor\n");
+    printf("2. Buscar valor\n");
+    printf("3. Remover valor\n");
+    printf("4. Exibir Ã¡rvore (hierÃ¡rquico)\n");
+    printf("5. Travessia PrÃ©-ordem\n");
+    printf("6. Travessia Em ordem\n");
+    printf("7. Travessia PÃ³s-ordem\n");
+    printf("8. Sair\n");
+    printf("=============================================\n");
+    printf("Escolha uma opÃ§Ã£o: ");
+}
+
+int main() {
+    RedBlackTree* tree = createRedBlackTree();
+    int choice, value;
+    
+    printf("ImplementaÃ§Ã£o de Ãrvore Rubro-Negra (Red-Black Tree)\n");
+    printf("====================================================\n");
+    
+    do {
+        displayMenu();
+        scanf("%d", &choice);
+        
+        switch (choice) {
+            case 1:
+                printf("Digite o valor a ser inserido: ");
+                scanf("%d", &value);
+                insertNode(tree, value);
+                break;
+                
+            case 2:
+                printf("Digite o valor a ser buscado: ");
+                scanf("%d", &value);
+                searchValue(tree, value);
+                break;
+                
+            case 3:
+                printf("Digite o valor a ser removido: ");
+                scanf("%d", &value);
+                deleteNode(tree, value);
+                break;
+                
+            case 4:
+                displayTree(tree);
+                break;
+                
+            case 5:
+                printf("Travessia PrÃ©-ordem: ");
+                preOrderTraversal(tree, tree->root);
+                printf("\n");
+                break;
+                
+            case 6:
+                printf("Travessia Em ordem: ");
+                inOrderTraversal(tree, tree->root);
+                printf("\n");
+                break;
+                
+            case 7:
+                printf("Travessia PÃ³s-ordem: ");
+                postOrderTraversal(tree, tree->root);
+                printf("\n");
+                break;
+                
+            case 8:
+                printf("Encerrando programa...\n");
+                break;
+                
+            default:
+                printf("OpÃ§Ã£o invÃ¡lida! Tente novamente.\n");
+        }
+        
+    } while (choice != 8);
+    
+    return 0;
+}
